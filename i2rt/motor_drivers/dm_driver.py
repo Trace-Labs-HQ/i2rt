@@ -406,7 +406,19 @@ class DMChainCanInterface(MotorChain):
         # some callers (e.g. _get_gripper_only_robot) start the thread inside this constructor.
         self.enable_auto_recovery = enable_auto_recovery
         logging.info(f"Channel: {channel}, Bitrate: {bitrate}")
-        if isinstance(channel, str) and channel.startswith("gs_usb"):
+        if isinstance(channel, str) and channel.startswith("/dev/"):
+            # slcan serial device (e.g. /dev/tty.usbmodem* for a CANable
+            # running slcan firmware on macOS) — hosts without socketcan.
+            self.motor_interface = DMSingleMotorCanInterface(
+                channel=channel,
+                bustype="slcan",
+                bitrate=bitrate,
+                receive_mode=receive_mode,
+                name=motor_chain_name,
+                control_mode=control_mode,
+                use_buffered_reader=use_buffered_reader,
+            )
+        elif isinstance(channel, str) and channel.startswith("gs_usb"):
             # "gs_usb" or "gs_usb:<index>" — candleLight adapter by scan index, for
             # hosts without socketcan (macOS/Windows). Index is the python-can
             # gs_usb channel, not an interface name.
