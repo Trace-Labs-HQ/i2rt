@@ -406,7 +406,21 @@ class DMChainCanInterface(MotorChain):
         # some callers (e.g. _get_gripper_only_robot) start the thread inside this constructor.
         self.enable_auto_recovery = enable_auto_recovery
         logging.info(f"Channel: {channel}, Bitrate: {bitrate}")
-        if "can" in channel:
+        if isinstance(channel, str) and channel.startswith("gs_usb"):
+            # "gs_usb" or "gs_usb:<index>" — candleLight adapter by scan index, for
+            # hosts without socketcan (macOS/Windows). Index is the python-can
+            # gs_usb channel, not an interface name.
+            index = int(channel.split(":", 1)[1]) if ":" in channel else 0
+            self.motor_interface = DMSingleMotorCanInterface(
+                channel=index,
+                bustype="gs_usb",
+                bitrate=bitrate,
+                receive_mode=receive_mode,
+                name=motor_chain_name,
+                control_mode=control_mode,
+                use_buffered_reader=use_buffered_reader,
+            )
+        elif "can" in channel:
             self.motor_interface = DMSingleMotorCanInterface(
                 channel=channel,
                 bustype="socketcan",
@@ -610,7 +624,10 @@ class DMChainCanInterface(MotorChain):
                         with self.same_bus_device_lock:
                             # assume the same bus device is a passive input device (no commands to send) for now.
                             self.same_bus_device_states = self.same_bus_device_driver.read_states()
-                    time.sleep(0.0005)  # yield GIL so other threads can acquire locks
+                    # I2RT_CHAIN_SLEEP throttles CAN traffic on hosts whose adapter
+                    # stalls under sustained load (macOS gs_usb); default keeps the
+                    # stock behavior of merely yielding the GIL.
+                    time.sleep(float(os.environ.get("I2RT_CHAIN_SLEEP", "0.0005")))
                     self._rate_recorder.track()
                 except Exception as e:
                     print(f"DM Error in control loop: {e}")

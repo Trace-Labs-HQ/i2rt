@@ -336,7 +336,9 @@ class MotorChainRobot(Robot):
             self.update()
             if not self.motor_chain.running:
                 raise RuntimeError(f"{self}: motor_chain_robot's motor chain is not running, exiting the robot server")
-            time.sleep(0.001)
+            # I2RT_LOOP_SLEEP throttles the free-running loop on hosts whose CAN
+            # adapter stalls under sustained max-rate USB traffic (macOS gs_usb).
+            time.sleep(float(os.environ.get("I2RT_LOOP_SLEEP", "0.001")))
 
             iteration_count += 1
             if elapsed_time >= 10.0:
