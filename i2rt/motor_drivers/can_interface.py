@@ -127,6 +127,10 @@ class CanInterface:
             else:
                 message = self.bus.recv(timeout=0.001)
             if message:
+                # Backends like gs_usb deliver TX-confirmation echoes of our own
+                # frames (is_rx=False); only genuine bus traffic is a motor reply.
+                if not getattr(message, "is_rx", True):
+                    continue
                 return message
         if not supress_warning:
             logging.warning(
